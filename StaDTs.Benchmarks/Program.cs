@@ -43,7 +43,7 @@ public class StaDTsBenchmarks
     private static double DunetArea(Shape shape) =>
         shape.Match(c => c.Radius, r => r.Length, t => t.Base);
 
-    private static double Stadts<TShape>(in TShape shape) where TShape : Shape<TShape>
+    private static double Stadts<TShape>(in TShape shape) where TShape : StaDTs.Example.Shape<TShape>
     {
         return TShape.Match(
             in shape,

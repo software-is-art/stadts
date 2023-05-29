@@ -4,15 +4,15 @@ using static StaDTs.Example.Shape;
 namespace StaDTs.Example;
 
 [Union]
-public abstract partial record Shape
+public partial record Shape
 {
-    partial record struct Circle(double Radius);
+    public partial record struct Circle(double Radius);
 
-    partial record struct Rectangle(double Length, double Width);
+    public partial record struct Rectangle(double Length, double Width);
 
-    partial record struct Triangle(double Base, double Height);
+    public partial record struct Triangle(double Base, double Height);
 }
-
+/*
 public interface Shape<TShape> : IUnion<TShape, Circle, Rectangle, Triangle>
     where TShape : Shape<TShape> { }
 
@@ -207,3 +207,4 @@ public abstract partial record Shape : Shape<Shape>
         }
     }
 }
+*/
