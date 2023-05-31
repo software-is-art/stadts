@@ -19,12 +19,15 @@ public partial record Shape
 [MemoryDiagnoser]
 public class StaDTsBenchmarks
 {
+    /*
     [Benchmark]
     public double Dunet()
     {
         var rectangle = new Shape.Rectangle(10, 10);
         return DunetArea(rectangle);
     }
+    */
+    /*
 
     [Benchmark]
     public double Stadts()
@@ -52,4 +55,5 @@ public class StaDTsBenchmarks
             (in StaDTs.Example.Shape.Triangle triangle) => triangle.Base
         );
     }
+    */
 }
