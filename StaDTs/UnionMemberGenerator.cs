@@ -42,8 +42,7 @@ public class UnionAttribute : Attribute { }
 
         var compilationAndUnions = context.CompilationProvider.Combine(unions.Collect());
 
-        context.RegisterSourceOutput(compilationAndUnions,
-            static (spc, source) => Execute(source.Item1, source.Item2, spc));
+        context.RegisterSourceOutput(compilationAndUnions, Execute);
 
         static bool IsSyntaxTargetForGeneration(SyntaxNode node, CancellationToken _) => node is RecordDeclarationSyntax record && record.AttributeLists.Count > 0;
         static RecordDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context, CancellationToken _)
@@ -59,24 +58,30 @@ public class UnionAttribute : Attribute { }
             }
             return null;
         }
-    }
-}
+        static void Execute(SourceProductionContext context, (Compilation compilation, ImmutableArray<RecordDeclarationSyntax?> unions) input)
+        {
+            var (compilation, unions) = input;
 
-[Generator]
-public class UnionMemberGenerator : ISourceGenerator
-{
-    public void Execute(GeneratorExecutionContext context)
-    {
-    if (!(context.SyntaxContextReceiver is UnionAttributeSyntaxReceiver receiver))
-        return;
-    foreach (var union in receiver.Unions)
-    {
-        var model = context.Compilation.GetSemanticModel(union.SyntaxTree);
-        var symbol = model.GetDeclaredSymbol(union);
-        var name = symbol.ToDisplayString();
-        var members = union.Members.OfType<RecordDeclarationSyntax>();
-        var source =
-@$"
+            foreach (var union in unions)
+            {
+                if (union is null)
+                {
+                    continue;
+                }
+                var model = compilation.GetSemanticModel(union.SyntaxTree);
+                var symbol = model.GetDeclaredSymbol(union);
+                if (symbol is null)
+                {
+                    continue;
+                }    
+                var name = symbol.ToDisplayString();
+                var members = union.Members.OfType<RecordDeclarationSyntax>();
+                if (members is null)
+                {
+                    continue;
+                }
+                var source =
+        @$"
 using StaDTs;
 
 public interface {name}<TMember>
@@ -99,12 +104,12 @@ protected abstract TResult Match<TResult>({MembersRefFuncs()});
 {Members()}
 }}
 ";
-        string MembersImplicitOps() => string.Join("\n", members.Select(m => $"public static implicit operator {name}(in {m.Identifier.ValueText} {m.Identifier.ValueText.ToCamelCase()}) => new {m.Identifier.ValueText}.Boxed(in {m.Identifier.ValueText});"));
-        string MembersRefActions() => string.Join(", ", members.Select(m => $"RefAction<{m.Identifier.ValueText}> {m.Identifier.ValueText.ToCamelCase()}"));
-        string MembersRefFuncs() => string.Join(", ", members.Select(m => $"RefFunc<{m.Identifier.ValueText}, TResult> {m.Identifier.ValueText.ToCamelCase()}"));
-        string MembersParameters() => string.Join(", ", members.Select(m => $"{m.Identifier.ValueText.ToCamelCase()}"));
-        string Members() => string.Join("\n", members.Select(m =>
-@$"
+                string MembersImplicitOps() => string.Join("\n", members.Select(m => $"public static implicit operator {name}(in {m.Identifier.ValueText} {m.Identifier.ValueText.ToCamelCase()}) => new {m.Identifier.ValueText}.Boxed(in {m.Identifier.ValueText});"));
+                string MembersRefActions() => string.Join(", ", members.Select(m => $"RefAction<{m.Identifier.ValueText}> {m.Identifier.ValueText.ToCamelCase()}"));
+                string MembersRefFuncs() => string.Join(", ", members.Select(m => $"RefFunc<{m.Identifier.ValueText}, TResult> {m.Identifier.ValueText.ToCamelCase()}"));
+                string MembersParameters() => string.Join(", ", members.Select(m => $"{m.Identifier.ValueText.ToCamelCase()}"));
+                string Members() => string.Join("\n", members.Select(m =>
+        @$"
 public partial record struct {m.Identifier.ValueText} : {name}<{m.Identifier.ValueText}>
 {{
 public static void Match(in {m.Identifier.ValueText} member, {MembersRefActions()}) => {m.Identifier.ValueText}(in member);
@@ -119,44 +124,8 @@ public record Boxed : {name}
 }}
 }}
 "));
-        context.AddSource($"{name}.g.cs", SourceText.From(source, Encoding.UTF8));
-    }
-}
-
-public void Initialize(GeneratorInitializationContext context)
-{
-    context.RegisterForSyntaxNotifications(() => new UnionAttributeSyntaxReceiver());
-}
-
-class UnionAttributeSyntaxReceiver : ISyntaxContextReceiver
-{
-    public List<RecordDeclarationSyntax> Unions { get; } = new();
-
-    public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
-    {
-        if (
-            context.Node is RecordDeclarationSyntax record
-            && record.AttributeLists.Count > 0
-        )
-            foreach (
-                var attribute in record.AttributeLists.SelectMany(
-                    attributeList => attributeList.Attributes
-                )
-            )
-            {
-                var attributeSymbol = context.SemanticModel.GetSymbolInfo(attribute).Symbol;
-                if (
-                    attributeSymbol != null
-                    && attributeSymbol.ContainingNamespace.ToDisplayString()
-                        + "."
-                        + attributeSymbol.Name
-                        == "StaDTs.Union"
-                )
-                {
-                    Unions.Add(record);
-                    return;
-                }
+                context.AddSource($"{name}.g.cs", SourceText.From(source, Encoding.UTF8));
             }
+        }
     }
-}
 }
